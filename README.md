@@ -14,7 +14,7 @@ GPUs idling at 30% utilisation burn money. Autoscaling is FinOps.
 
 ## Status
 
-Scaffolded. Concept notes and the first implementation are in progress; results land in `results/` once the GPU runs are done.
+Concept primer written (`CONCEPTS.md`). The controller and the trace replay are next; this project needs no GPU.
 
 ## Layout
 
