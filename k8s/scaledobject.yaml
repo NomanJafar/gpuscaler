@@ -1,0 +1,31 @@
+# Reference only: the same policy as gpuscaler.policy.QueueDepthPolicy expressed for KEDA + the HPA.
+# Scales a vLLM Deployment on the pool-wide number of waiting requests from Prometheus.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: vllm-queue-depth
+spec:
+  scaleTargetRef:
+    name: vllm                     # Deployment of vLLM replicas
+  pollingInterval: 5               # seconds between metric reads
+  cooldownPeriod: 180              # before scaling to minReplicaCount after the metric goes quiet
+  minReplicaCount: 1               # 0 is possible, but a cold start is then on the critical path
+  maxReplicaCount: 8
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies: [{type: Percent, value: 100, periodSeconds: 60}]   # scale-up cooldown ~ 60 s
+        scaleDown:
+          stabilizationWindowSeconds: 180                                # scale-down window
+          policies: [{type: Pods, value: 1, periodSeconds: 60}]          # one replica per minute
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        query: sum(vllm:num_requests_waiting)                            # queue depth across the pool
+        threshold: "4"                                                   # target queued requests per replica
+        activationThreshold: "1"
+# Warm standby has no KEDA primitive: run a second Deployment with replicas=1 that the service
+# routes to only when the main pool queues (or use vLLM sleep mode on an idle replica).
